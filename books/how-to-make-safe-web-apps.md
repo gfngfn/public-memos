@@ -88,7 +88,44 @@
         * スキーム（プロトコル）
           - したがって同一のFQDNからでも例えばHTTPとHTTPSとでは異なる生成元とみなす．
         * ポート番号
-      - Ajaxの `XMLHttpRequest` でアクセスできるURLにも同一生成元ポリシーが課されるが，これについては相手側のサイトが許可すれば同一生成元でなくても通信できる **CORS** という規格がある（→ 3.3節）．
+      - Ajaxの `XMLHttpRequest` でアクセスできるURLにも同一生成元ポリシーが課されるが，意図的に同一生成元でないサイト間で跨ってやり取りしたい場合は相手側のサイトが許可すれば同一生成元でなくても通信できる **CORS** という規格がある（→ 3.3節）．
       - “`iframe` 要素の内側にJavaScriptを送って実行させる攻撃” （**クロスサイトスクリプティング**）ができるようになっているとこれは同一生成元ポリシーを以てしても防げない．
         * しかし実際にはアクセス解析用のソースやバナー広告，ブログパーツなど，第三者の提供するJavaScriptを許可せざるを得ない場合もある．これはサイト運営者または閲覧者がJavaScript提供元を信頼することで許可することになる．提供元が意図的に個人情報を収集していたり，提供元が意図しない動作が提供されたJavaScriptの脆弱性によって攻撃で差し替えられて発生したりするセキュリティ上の問題が頻繁に生じているので，慎重な判断を要する．このほか，ブラウザのアドオンにも同様の慎重さが必要（こちらはサイトが提供する通常のJavaScriptよりも強い権限で動作するのでさらに慎重を期する）．
-      - `iframe` 以外でも
+      - `iframe` 以外でも `img`，`script`，`form` 要素の `action` 属性でクロスドメインが関わる．
+        * `img` は特に制約なくクロスドメインでも指定可能．
+        * `form` の送信もaction先がクロスドメインであっても操作可能．これを悪用するのがクロスサイトリクエストフォージェリ (CSRF)（→ 4.5節）．
+        * `script` に関しては，（最近は全然名前を聞かないが）**JSONP** の取り扱いにリスクがある（→ 4.16.7項）．
+        * CSSも特に制約なくクロスドメインでも指定可能．
+          - ただし，かつてIEにはCSSでないデータがCSSとして読み出す際に部分的に読み出せてしまう脆弱性があり，**CSSXSS** と呼ばれていた．
+
+## 3.3 CORS
+
+* 同一生成元でないサイト間を跨ってデータをやり取りしたい場合はどうしてもあり，この要請に応える仕様として **CORS** (cross-origin resource sharing) が策定された．
+* CORSに頼らなくとも，次を全て満たす **シンプルなリクエスト** の場合は提供側の許可なくできるようになっている：
+  - メソッドはGET，HEAD，POSTのいずれか
+  - `XMLHttpRequest` オブジェクトに対して `setRequestHeader` で設定されたHTMLヘッダが以下の範囲のみ：
+    * `Accept`
+    * `Accept-Language`
+    * `Content-Language`
+    * `Content-Type`
+  - `Content-Type` ヘッダの値が以下のいずれか：
+    * `text/plain`
+    * `application/x-www-form-urlencoded`
+    * `multipart/form-data`
+* 以下でも述べるが，提供側が許可するドメインをレスポンスの `Access-Control-Allow-Origin` に与えることでブラウザに「このドメインに由来するJavaScriptコードからは私のレスポンスの内容を読み取っていいですよ」ということを伝えられるようになっている．
+* シンプルなリクエストではないリクエストをクロスドメインで送信する場合，ブラウザはまず **プリフライトリクエスト** と呼ばれるHTTPリクエストを送信する．これには主に以下のようなヘッダを含める：
+  - `Access-Control-Request-Method`
+    * この後送る本番のリクエストメソッドが何であるかを伝え，メソッドに対する許可を得ようとする．
+    * 例： `Access-Control-Request-Method: POST, GET, OPTIONS`
+  - `Access-Control-Request-Headers`
+    * 本番のリクエストメソッドに含めるヘッダを伝え，ヘッダに対する許可を得ようとする．
+    * 例： `Access-Control-Request-Headers: content-type`
+  - `Origin`
+    * オリジンを伝え，許可を得ようとする．
+    * 例： `Origin: http://example.jp`
+* 提供側はプリフライトリクエストを受け取ったら403 Forbiddenを返して拒否するか，或いは以下のようなレスポンスヘッダを返して許可を出す：
+  - `Access-Control-Allow-Origin`
+  - `Access-Control-Allow-Methods`
+  - `Access-Control-Allow-Headers`
+* クッキーを受け取って使いたい場合は，`XMLHttpRequest` の `withCredentials` を `true` にしてリクエストを送る．
+  - 提供側はそのリクエストに対して `Access-Control-Allow-Credentials: true` をヘッダにしてレスポンスを返す．するとクライアント側のブラウザは「提供元が許可した」と判断して `Set-Cookie` の内容を保持し，次回のリクエストにそのクッキーを含めるようになる．
