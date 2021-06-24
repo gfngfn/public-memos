@@ -45,7 +45,7 @@ TDDは「プログラミング中の不安をコントロールするための�
 まず大体どんなテストケースをつくるかのTODOリストを書く．
 
 > - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
-> - [ ] **$5 + 2 = $10**
+> - [ ] **$5 × 2 = $10**
 
 テストのTODOリストの記述の凡例：
 
@@ -73,7 +73,7 @@ public class MoneyTest {
 `amount` がpublicなフィールドになっていたり，変数 `five` を破壊的に変更していたり，いずれ丸めが必要になるはずなのに `int` 型で金額を扱っていたりと不備は多いが，小刻みに進めるためまずはこれをたたき台にしている．気づいたことをTODOリストに追加すると以下のようになる：
 
 > - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
-> - [ ] **$5 + 2 = $10**
+> - [ ] **$5 × 2 = $10**
 > - [ ] `amount` をprivateにする
 > - [ ] `Dollar` の副作用をなんとかする
 > - [ ] `Money` の丸め処理に対応する
@@ -167,7 +167,7 @@ class Dollar(int amount) {
 これでTODOの項目がひとつ終わった：
 
 > - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
-> - [x] ~~$5 + 2 = $10~~
+> - [x] ~~$5 × 2 = $10~~
 > - [ ] `amount` をprivateにする
 > - [ ] `Dollar` の副作用をなんとかする
 > - [ ] `Money` の丸め処理に対応する
@@ -195,7 +195,7 @@ public class MoneyTest {
 すなわち取り組むのはこれ：
 
 > - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
-> - [x] ~~$5 + 2 = $10~~
+> - [x] ~~$5 × 2 = $10~~
 > - [ ] `amount` をprivateにする
 > - [ ] **`Dollar` の副作用をなんとかする**
 > - [ ] `Money` の丸め処理に対応する
@@ -211,7 +211,7 @@ Dollar times(int multiplier) {
 これで通ってgreenを達成し，かつこれ以上抽象度を適切にする必要はないのでrefactoringも達成：
 
 > - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
-> - [x] ~~$5 + 2 = $10~~
+> - [x] ~~$5 × 2 = $10~~
 > - [ ] `amount` をprivateにする
 > - [x] ~~`Dollar` の副作用をなんとかする~~
 > - [ ] `Money` の丸め処理に対応する
@@ -231,7 +231,7 @@ Dollar times(int multiplier) {
 クラスのインスタンスを参照等価な値として使うようにすることを（わざわざ）**Value Objectパターン** と呼ぶらしい．フォーマルには，**Value Object** として扱うには `equals()` と `hashCode()` というメソッドが要請される．というわけでTODOが増える：
 
 > - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
-> - [x] ~~$5 + 2 = $10~~
+> - [x] ~~$5 × 2 = $10~~
 > - [ ] `amount` をprivateにする
 > - [x] ~~`Dollar` の副作用をなんとかする~~
 > - [ ] `Money` の丸め処理に対応する
@@ -257,3 +257,119 @@ public boolean equals(Object object) {
   return true;
 }
 ```
+
+で，ここで実装を与えてもよいが，TDDのさらに別の手法「三角測量」を使ってみる．三角測量というのは「コードを一般化できるのは複数の実例があるときだ」という意味のアナロジー．ここでは例えば「$5 = $6　は成り立たない」というテストケースを追加すると落ちる：
+
+```java
+public class MoneyTest {
+（略）
+  @Test
+  public void testEquality() {
+    assertTrue(new Dollar(5).equals(new Dollar(5)));
+    assertFalse(new Dollar(5).equals(new Dollar(6)));
+  }
+}
+```
+
+これで一般化する必要が生じたので実装をマトモにする：
+
+```java
+public boolean equals(Object object) {
+  Dollar dollar = (Dollar) object;
+  return amound == dollar.amount;
+}
+```
+
+これで通る．ただしこれは `null` や他のクラスのオブジェクトとは比較できない実装なので，それをTODOに加え，次章で `amount` をprivateにする：
+
+> - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
+> - [x] ~~$5 × 2 = $10~~
+> - [ ] **`amount` をprivateにする**
+> - [x] ~~`Dollar` の副作用をなんとかする~~
+> - [ ] `Money` の丸め処理に対応する
+> - [x] ~~`equals()`~~
+> - [ ] `hashCode()`
+> - [ ] `null` との等価性比較
+> - [ ] 他のクラスのオブジェクトとの等価性比較
+
+
+### 4. 意図を語るテスト
+
+`Dollar` に対して等価性が判定できるようになったため，テストをより “意図を語る” 記述へと修正できる：
+
+```diff
+ public class MoneyTest {
+   @Test
+   public void testMultiplication() {
+     Dollar five = new Dollar(5);
+     Dollar product = five.times(2);
+-    assertEquals(10, product.amount);
++    assertEquals(new Dollar(10), product);
+     product = five.times(3);
+-    assertEquals(15, product.amount);
++    assertEquals(new Dollar(15), product);
+   }
+ }
+```
+
+これにより `amount` は `Dollar` 内部でのみ使用されるフィールドとなり，privateに変更できる：
+
+```diff
+ class Dollar(int amount) {
+-  int amount;
++  private int amount;
+   Dollar(int amount) {
+     this.amount = amount;
+   }
+   void times(int multiplier) {
+     amount = amount * multiplier;
+   }
+ }
+```
+
+> - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
+> - [x] ~~$5 × 2 = $10~~
+> - [x] ~~`amount` をprivateにする~~
+> - [x] ~~`Dollar` の副作用をなんとかする~~
+> - [ ] `Money` の丸め処理に対応する
+> - [x] ~~`equals()`~~
+> - [ ] `hashCode()`
+> - [ ] `null` との等価性比較
+> - [ ] 他のクラスのオブジェクトとの等価性比較
+
+ただし，ここで掛け算のテストは等価性判定に依存しているため，掛け算のテストの信頼性は等価性判定の信頼性の下に成り立っているという “リスクを受け入れた” ことは意識されねばならない．実際しばしば欠陥を見逃してしまうことはある．
+
+
+### 5. 原則をあえて破るとき
+
+1番目のTODOにそろそろ取り掛かりたいが，いきなりやるには重い．そこで `Dollar` と同様の `Franc` が実現できるサブゴールを設ける：
+
+> - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
+> - [x] ~~$5 × 2 = $10~~
+> - [x] ~~`amount` をprivateにする~~
+> - [x] ~~`Dollar` の副作用をなんとかする~~
+> - [ ] `Money` の丸め処理に対応する
+> - [x] ~~`equals()`~~
+> - [ ] `hashCode()`
+> - [ ] `null` との等価性比較
+> - [ ] 他のクラスのオブジェクトとの等価性比較
+> - [ ] **5 CHF × 2 = 10 CHF**
+
+まずは `Franc` のテストをつくる：
+
+```java
+public class MoneyTest {
+（略）
+  @Test
+  public void testFrancMultiplication() {
+    Franc five = new Franc(5);
+    assertEquals(new Franc(10), five.times(2));
+    assertEquals(new Franc(15), five.times(3));
+  }
+}
+```
+
+さて，これでレッドになったので，グリーンにする．この段階はとにかくテストを通せばよいという段階なので，罪を犯して `Dollar` を単にほぼ複製して `Franc` をつくればよい（コード略）．重複の削減は次の章で行なう．
+
+
+### 6. テスト不足に気づいたら
