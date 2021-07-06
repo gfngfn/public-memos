@@ -369,7 +369,168 @@ public class MoneyTest {
 }
 ```
 
-さて，これでレッドになったので，グリーンにする．この段階はとにかくテストを通せばよいという段階なので，罪を犯して `Dollar` を単にほぼ複製して `Franc` をつくればよい（コード略）．重複の削減は次の章で行なう．
+さて，これでredになったので，greenにする．この段階はとにかくテストを通せばよいという段階なので，罪を犯して `Dollar` を単にほぼ複製して `Franc` をつくればよい（コード略）．重複の削減は次の章で行なう．
 
 
 ### 6. テスト不足に気づいたら
+
+> - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
+> - [x] ~~$5 × 2 = $10~~
+> - [x] ~~`amount` をprivateにする~~
+> - [x] ~~`Dollar` の副作用をなんとかする~~
+> - [ ] `Money` の丸め処理に対応する
+> - [x] ~~`equals()`~~
+> - [ ] `hashCode()`
+> - [ ] `null` との等価性比較
+> - [ ] 他のクラスのオブジェクトとの等価性比較
+> - [x] ~~5 CHF × 2 = 10 CHF~~
+> - [ ] **`equals()` の一般化**
+> - [ ] `times()` の一般化
+
+前章で生じた重複の削減のため，`Dollar` と `Franc` の共通のスーパークラスとして `Money` を設ける．`Money.java` を以下のようにつくる：
+
+```java
+package money;
+
+class Money {
+}
+```
+
+そして `Dollar` 側で継承する：
+
+```java
+class Dollar extends Money {
+  （略）
+}
+```
+
+勿論この時点では普通にテストが通ったまま．最終的に `equals()` メソッドを `Dollar` から `Money` に一般化することを見越し，`amount` フィールドを `Dollar` から `Money` へ移動する：
+
+```java
+class Money {
+  protected int amount;
+}
+```
+
+可視性は `private` ではなく `protected` に変更する必要がある．では `equals()` を `Money` へと一般化する：
+
+```java
+public boolean equals(Object object) {
+  Money money = (Money) object;
+  return amount == money.amount;
+}
+```
+
+実際には少しずつ一般化していってその都度テストが通ることを確認する．最終的にテストを通したまま一般化できたので，この `equals()` を `Money` へ移す．
+
+`Franc` の方の `equals()` も一般化すべきだが，`Franc` の方の `equals()` に対しては（原則を破って）テストを書いていなかった．ここで追加する：
+
+```diff
+ public void testEquality() {
+   assertTrue(new Dollar(5).equals(new Dollar(5)));
+   assertFalse(new Dollar(5).equals(new Dollar(6)));
++  assertTrue(new Franc(5).equals(new Franc(5)));
++  assertFalse(new Franc(5).equals(new Franc(6)));
+ }
+```
+
+で，`Franc` の方も同様に一般化でき，同様の手順を踏んで `amount` と `equals()` が削除できる：
+
+```java
+class Franc extends Money {
+  （略）
+}
+```
+
+金額を一般化したところでそろそろ「`Dollar` と `Franc` の値も比較できるべきだがどうするか？」という疑問も頭をよぎるのでリストに入れておく：
+
+> - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
+> - [x] ~~$5 × 2 = $10~~
+> - [x] ~~`amount` をprivateにする~~
+> - [x] ~~`Dollar` の副作用をなんとかする~~
+> - [ ] `Money` の丸め処理に対応する
+> - [x] ~~`equals()`~~
+> - [ ] `hashCode()`
+> - [ ] `null` との等価性比較
+> - [ ] 他のクラスのオブジェクトとの等価性比較
+> - [x] ~~5 CHF × 2 = 10 CHF~~
+> - [x] ~~`equals()` の一般化~~
+> - [ ] `times()` の一般化
+> - [ ] **`Franc` と `Dollar` を比較する**
+
+
+### 7. 疑念をテストに翻訳する
+
+前章の最後の疑問をとりあえずテストに追加する：
+
+```java
+assertFalse(new Franc(5).equals(new Dollar(5)))
+```
+
+ところがこれはテストに通らないので，実装を直す必要がある．アドホックな修正として，`Dollar` は `Dollar` と，`Franc` は `Franc` とのみ等価比較できるようにしておく：
+
+```java
+class Money {
+  protected int amount;
+  public boolean equals(Object object) {
+    Money money = (Money) object;
+    return amount == money.amount
+      && getClass().equals(money.getClass())
+  }
+}
+```
+
+比較は本来 “Javaオブジェクトの世界” ではなく “財務の世界” で行なわれるべきなので，こういうコードがモデルに現れるのは不吉な感じがするが，とりあえずこのまま行く．“財務の世界” で比較を行なうには通貨の概念がデータとして形式化されている必要がある．
+
+
+### 8. 実装を隠す
+
+> - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
+> - [x] ~~$5 × 2 = $10~~
+> - [x] ~~`amount` をprivateにする~~
+> - [x] ~~`Dollar` の副作用をなんとかする~~
+> - [ ] `Money` の丸め処理に対応する
+> - [x] ~~`equals()`~~
+> - [ ] `hashCode()`
+> - [ ] `null` との等価性比較
+> - [ ] 他のクラスのオブジェクトとの等価性比較
+> - [x] ~~5 CHF × 2 = 10 CHF~~
+> - [x] ~~`equals()` の一般化~~
+> - [ ] **`times()` の一般化**
+> - [x] ~~`Franc` と `Dollar` を比較する~~
+> - [ ] 通貨の概念を導入する
+
+`times()` も `Money` クラスへと一般化できるはず．実際 `Dollar` と `Franc` の `times()` はよく似ている．まず戻り値のクラスを `Money` にしてしまう：
+
+```java
+class Dollar {
+  Dollar(int amount) {
+    this.amount = amount;
+  }
+  Money times(int multiplier) {
+    return new Dollar(amount * multiplier);
+  }
+}
+
+class Franc {
+  Franc(int amount) {
+    this.amount = amount;
+  }
+  Money times(int multiplier) {
+    return new Franc(amount * multiplier);
+  }
+}
+```
+
+この次のステップが厄介．`Dollar` と `Franc` という子クラスは大したことをやっていないので消してしまうのがよいと考える．そこで，これらのクラスのコンストラクタを `Money` に属するいわゆる **factory method** `dollar()`，`franc()` で置き換える．勿論テストから修正するのである：
+
+```java
+@Test
+public void testMultiplication() {
+  Money five = Money.dollar(5);
+  assertEquals(new Dollar(10), five.times(2));
+  assertEquals(new Dollar(15), five.times(3));
+}
+```
+
+そして実装も用意する：
