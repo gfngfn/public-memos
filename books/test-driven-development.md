@@ -533,4 +533,46 @@ public void testMultiplication() {
 }
 ```
 
-そして実装も用意する：
+そして「`Money` クラスには `times` がない」と言われるので実装も用意するが，`times()` は直接は実装せず，`Money` を抽象クラスにして `times()` メソッドを要請するようにする：
+
+```java
+abstract class Money {
+  protected int amount;
+  abstract Money times(int multiplier);
+  public boolean equals(Object object) { （略） }
+  static Money dollar(int amount) {
+    return new Dollar(amount);
+  }
+}
+```
+
+そして依然テストが通ることを確認し，テスト中の残りの `new Dollar(amount)` も `Money.dollar(amount)` で置き換える．フランに対するテストであった `testFrancMultiplication` も同様にして `new Franc(amount)` を `Money.franc(amount)` で置き換え，`franc()` を実装に与える：
+
+```java
+abstract class Money {
+（略）
+  static Money franc(int amount) {
+    return new Franc(amount);
+  }
+}
+```
+
+
+### 9. 歩幅の調整
+
+> - [ ] $5 + 10 CHF = $10（スイス・フランと米ドルの交換為替が 2:1 の場合）
+> - [x] ~~$5 × 2 = $10~~
+> - [x] ~~`amount` をprivateにする~~
+> - [x] ~~`Dollar` の副作用をなんとかする~~
+> - [ ] `Money` の丸め処理に対応する
+> - [x] ~~`equals()`~~
+> - [ ] `hashCode()`
+> - [ ] `null` との等価性比較
+> - [ ] 他のクラスのオブジェクトとの等価性比較
+> - [x] ~~5 CHF × 2 = 10 CHF~~
+> - [ ] `Dollar` と `Franc` の比較
+> - [x] ~~`equals()` の一般化~~
+> - [ ] `times()` の一般化
+> - [x] ~~`Franc` と `Dollar` を比較する~~
+> - [ ] 通貨の概念を導入する
+> - [ ] `testFrancMultiplication` を削除する？
